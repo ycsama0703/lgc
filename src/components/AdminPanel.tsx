@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { UserPlus, UserMinus, Flame, Sparkles, ShieldPlus, ShieldMinus, KeyRound } from "lucide-react";
 import type { WalletInfo } from "../hooks/useLGCRead";
 import type { useLGCWrite } from "../hooks/useLGCWrite";
 import { TxStatus } from "./TxStatus";
@@ -9,127 +10,150 @@ interface Props {
   write: ReturnType<typeof useLGCWrite>;
 }
 
-function ActionForm({
-  label,
-  placeholder,
-  buttonLabel,
-  onSubmit,
-  hasAmount = false,
-}: {
-  label: string;
-  placeholder: string;
+interface ActionCardProps {
+  icon: React.ReactNode;
+  title: string;
+  addrLabel: string;
+  amountLabel?: string;
   buttonLabel: string;
+  buttonColor?: string;
   onSubmit: (addr: string, amount?: string) => void;
-  hasAmount?: boolean;
-}) {
+}
+
+function ActionCard({ icon, title, addrLabel, amountLabel, buttonLabel, buttonColor = "bg-indigo-600 hover:bg-indigo-500", onSubmit }: ActionCardProps) {
   const [addr, setAddr] = useState("");
   const [amount, setAmount] = useState("");
+  const valid = addr.trim() !== "" && (!amountLabel || amount.trim() !== "");
 
   return (
-    <div className="space-y-2">
-      <p className="text-gray-300 text-sm font-medium">{label}</p>
-      <input
-        className="w-full bg-gray-700 border border-gray-600 text-white text-sm rounded px-3 py-2 font-mono placeholder-gray-500 focus:outline-none focus:border-indigo-500"
-        placeholder={placeholder}
-        value={addr}
-        onChange={(e) => setAddr(e.target.value)}
-      />
-      {hasAmount && (
-        <input
-          className="w-full bg-gray-700 border border-gray-600 text-white text-sm rounded px-3 py-2 placeholder-gray-500 focus:outline-none focus:border-indigo-500"
-          placeholder="Amount (e.g. 100)"
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-        />
-      )}
-      <button
-        onClick={() => onSubmit(addr, amount)}
-        disabled={!addr || (hasAmount && !amount)}
-        className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm py-2 rounded font-medium"
-      >
-        {buttonLabel}
-      </button>
+    <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 space-y-3">
+      <div className="flex items-center gap-2.5 mb-1">
+        <span className="text-gray-400">{icon}</span>
+        <h3 className="text-white text-sm font-semibold">{title}</h3>
+      </div>
+      <div className="space-y-2">
+        <div>
+          <label className="text-gray-500 text-xs mb-1 block">{addrLabel}</label>
+          <input
+            className="w-full bg-gray-800 border border-gray-700 text-white text-xs rounded-lg px-3 py-2 font-mono placeholder-gray-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30"
+            placeholder="0x…"
+            value={addr}
+            onChange={(e) => setAddr(e.target.value)}
+          />
+        </div>
+        {amountLabel && (
+          <div>
+            <label className="text-gray-500 text-xs mb-1 block">{amountLabel}</label>
+            <input
+              className="w-full bg-gray-800 border border-gray-700 text-white text-xs rounded-lg px-3 py-2 placeholder-gray-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30"
+              placeholder="e.g. 100"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+            />
+          </div>
+        )}
+        <button
+          onClick={() => { onSubmit(addr, amount); }}
+          disabled={!valid}
+          className={`w-full ${buttonColor} disabled:opacity-30 disabled:cursor-not-allowed text-white text-xs py-2 rounded-lg font-medium transition-colors`}
+        >
+          {buttonLabel}
+        </button>
+      </div>
     </div>
   );
 }
 
 export function AdminPanel({ walletInfo, isOwner, write }: Props) {
   const isAdmin = walletInfo?.isAdmin || isOwner;
-
   if (!isAdmin) return null;
 
   return (
-    <section>
-      <h2 className="text-gray-300 text-sm font-semibold uppercase tracking-wide mb-3">
-        Admin Panel
-      </h2>
+    <div className="space-y-6">
       <TxStatus tx={write.tx} onReset={write.reset} />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
-        {/* Whitelist management */}
-        <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 space-y-4">
-          <h3 className="text-white text-sm font-semibold">Whitelist Management</h3>
-          <ActionForm
-            label="Add to Whitelist"
-            placeholder="0x address"
-            buttonLabel="Add"
+      {/* Whitelist + Mint/Burn */}
+      <div>
+        <p className="text-gray-500 text-xs font-semibold uppercase tracking-widest mb-3">Whitelist Management</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <ActionCard
+            icon={<UserPlus size={15} />}
+            title="Add to Whitelist"
+            addrLabel="Wallet address"
+            buttonLabel="Add Address"
+            buttonColor="bg-green-700 hover:bg-green-600"
             onSubmit={(addr) => write.addToWhitelist(addr)}
           />
-          <ActionForm
-            label="Remove from Whitelist"
-            placeholder="0x address"
-            buttonLabel="Remove"
+          <ActionCard
+            icon={<UserMinus size={15} />}
+            title="Remove from Whitelist"
+            addrLabel="Wallet address"
+            buttonLabel="Remove Address"
+            buttonColor="bg-red-800 hover:bg-red-700"
             onSubmit={(addr) => write.removeFromWhitelist(addr)}
           />
         </div>
+      </div>
 
-        {/* Mint / Burn */}
-        <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 space-y-4">
-          <h3 className="text-white text-sm font-semibold">Mint / Burn</h3>
-          <ActionForm
-            label="Mint"
-            placeholder="Recipient address"
+      <div>
+        <p className="text-gray-500 text-xs font-semibold uppercase tracking-widest mb-3">Supply Management</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <ActionCard
+            icon={<Sparkles size={15} />}
+            title="Mint Tokens"
+            addrLabel="Recipient address"
+            amountLabel="Amount"
             buttonLabel="Mint"
-            hasAmount
-            onSubmit={(addr, amount) => write.mint(addr, amount ?? "")}
+            buttonColor="bg-indigo-600 hover:bg-indigo-500"
+            onSubmit={(addr, amt) => write.mint(addr, amt ?? "")}
           />
-          {/* ABI: burn(address from, uint256 amount) */}
-          <ActionForm
-            label="Burn"
-            placeholder="Source address"
+          <ActionCard
+            icon={<Flame size={15} />}
+            title="Burn Tokens"
+            addrLabel="Source address"
+            amountLabel="Amount"
             buttonLabel="Burn"
-            hasAmount
-            onSubmit={(addr, amount) => write.burn(addr, amount ?? "")}
+            buttonColor="bg-orange-700 hover:bg-orange-600"
+            onSubmit={(addr, amt) => write.burn(addr, amt ?? "")}
           />
         </div>
-
-        {/* Owner-only section */}
-        {isOwner && (
-          <div className="bg-gray-800 border border-purple-800 rounded-lg p-4 space-y-4 md:col-span-2">
-            <h3 className="text-purple-300 text-sm font-semibold">Owner-Only Actions</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <ActionForm
-                label="Add Admin"
-                placeholder="0x address"
-                buttonLabel="Add Admin"
-                onSubmit={(addr) => write.addAdmin(addr)}
-              />
-              <ActionForm
-                label="Remove Admin"
-                placeholder="0x address"
-                buttonLabel="Remove Admin"
-                onSubmit={(addr) => write.removeAdmin(addr)}
-              />
-              <ActionForm
-                label="Transfer Ownership"
-                placeholder="New owner address"
-                buttonLabel="Transfer"
-                onSubmit={(addr) => write.transferOwnership(addr)}
-              />
-            </div>
-          </div>
-        )}
       </div>
-    </section>
+
+      {/* Owner-only */}
+      {isOwner && (
+        <div>
+          <p className="text-gray-500 text-xs font-semibold uppercase tracking-widest mb-3">
+            Owner Actions
+            <span className="ml-2 text-purple-400 normal-case tracking-normal">(owner only)</span>
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <ActionCard
+              icon={<ShieldPlus size={15} />}
+              title="Add Admin"
+              addrLabel="Wallet address"
+              buttonLabel="Add Admin"
+              buttonColor="bg-purple-700 hover:bg-purple-600"
+              onSubmit={(addr) => write.addAdmin(addr)}
+            />
+            <ActionCard
+              icon={<ShieldMinus size={15} />}
+              title="Remove Admin"
+              addrLabel="Wallet address"
+              buttonLabel="Remove Admin"
+              buttonColor="bg-purple-900 hover:bg-purple-800"
+              onSubmit={(addr) => write.removeAdmin(addr)}
+            />
+            <ActionCard
+              icon={<KeyRound size={15} />}
+              title="Transfer Ownership"
+              addrLabel="New owner address"
+              buttonLabel="Transfer Ownership"
+              buttonColor="bg-red-900 hover:bg-red-800"
+              onSubmit={(addr) => write.transferOwnership(addr)}
+            />
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

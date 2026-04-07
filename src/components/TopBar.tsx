@@ -1,107 +1,82 @@
 import { shortAddr } from "../lib/format";
-import { CONTRACT_ADDRESS, CHAIN_NAME, type Role } from "../lib/config";
-
-const ROLE_COLORS: Record<Role, string> = {
-  Owner: "bg-purple-600 text-white",
-  Admin: "bg-blue-600 text-white",
-  Whitelisted: "bg-green-600 text-white",
-  None: "bg-gray-600 text-white",
-};
+import { SEPOLIA_CHAIN_PARAMS } from "../lib/config";
 
 interface Props {
   address: string | null;
-  chainId: number | null;
   isCorrectChain: boolean;
-  role: Role;
   connectError: string | null;
   onConnect: () => void;
   onSwitchChain: () => void;
   connecting: boolean;
+  pageTitle: string;
 }
 
 export function TopBar({
   address,
-  chainId,
   isCorrectChain,
-  role,
   connectError,
   onConnect,
   onSwitchChain,
   connecting,
+  pageTitle,
 }: Props) {
   return (
-    <header className="bg-gray-900 border-b border-gray-700 px-6 py-3">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        {/* Title */}
-        <div>
-          <h1 className="text-white text-lg font-bold tracking-tight">
-            LGC Tokenized MMF Demo
-          </h1>
-          <p className="text-gray-400 text-xs font-mono">
-            {shortAddr(CONTRACT_ADDRESS)}
-            <span className="ml-2 text-gray-600">· Sepolia</span>
-          </p>
-        </div>
+    <header className="bg-gray-950 border-b border-gray-800 px-6 py-3">
+      <div className="flex items-center justify-between gap-4">
+        {/* Page title */}
+        <h1 className="text-white text-base font-semibold">{pageTitle}</h1>
 
-        {/* Right side */}
-        <div className="flex items-center gap-3 flex-wrap">
-          {/* Chain badge */}
-          {address && (
-            <span
-              className={`text-xs px-2 py-1 rounded font-mono ${
-                isCorrectChain
-                  ? "bg-green-900 text-green-300 border border-green-700"
-                  : "bg-red-900 text-red-300 border border-red-700"
-              }`}
-            >
-              {isCorrectChain ? CHAIN_NAME : `Chain ${chainId} — wrong network`}
-            </span>
-          )}
-
-          {/* Switch chain button */}
+        <div className="flex items-center gap-3">
+          {/* Wrong chain */}
           {address && !isCorrectChain && (
             <button
               onClick={onSwitchChain}
-              className="text-xs bg-red-600 hover:bg-red-500 text-white px-3 py-1 rounded"
+              className="flex items-center gap-1.5 text-xs bg-red-900/60 hover:bg-red-800 border border-red-700 text-red-300 px-3 py-1.5 rounded-lg transition-colors"
             >
+              <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
               Switch to Sepolia
             </button>
           )}
 
-          {/* Role badge */}
-          {address && (
-            <span className={`text-xs px-2 py-1 rounded font-semibold ${ROLE_COLORS[role]}`}>
-              {role === "None" ? "Non-whitelisted" : role}
-            </span>
-          )}
-
-          {/* Wallet address / connect button */}
+          {/* Connect / address */}
           {address ? (
-            <span className="text-gray-300 text-sm font-mono bg-gray-800 px-3 py-1 rounded border border-gray-700">
-              {shortAddr(address)}
-            </span>
+            <div className="flex items-center gap-2 bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-400" />
+              <span className="text-gray-200 text-xs font-mono">{shortAddr(address)}</span>
+            </div>
           ) : (
             <button
               onClick={onConnect}
               disabled={connecting}
-              className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-sm px-4 py-2 rounded font-medium"
+              className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-sm px-4 py-1.5 rounded-lg font-medium transition-colors"
             >
-              {connecting ? "Connecting… (check MetaMask)" : "Connect MetaMask"}
+              {connecting ? (
+                <>
+                  <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Connecting…
+                </>
+              ) : (
+                <>
+                  <span className="text-base">🦊</span>
+                  Connect MetaMask
+                </>
+              )}
             </button>
           )}
         </div>
       </div>
 
-      {/* Connection error banner */}
+      {/* Error banner */}
       {connectError && (
-        <div className="mt-2 text-xs text-red-300 bg-red-950 border border-red-800 rounded px-3 py-2 flex items-center gap-3">
-          <span>✗ {connectError}</span>
+        <div className="mt-2 flex items-center gap-3 text-xs text-red-300 bg-red-950/60 border border-red-800 rounded-lg px-3 py-2">
+          <span className="shrink-0">✗</span>
+          <span>{connectError}</span>
           {connectError.toLowerCase().includes("not found") && (
             <a
-              href="https://metamask.io/download/"
+              href={`https://${SEPOLIA_CHAIN_PARAMS.blockExplorerUrls?.[0] ? "metamask.io/download/" : "metamask.io/download/"}`}
               target="_blank"
               rel="noreferrer"
-              className="underline text-red-200 hover:text-white whitespace-nowrap"
+              className="ml-auto underline text-red-200 hover:text-white whitespace-nowrap"
             >
               Install MetaMask →
             </a>

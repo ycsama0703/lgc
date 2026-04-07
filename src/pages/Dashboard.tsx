@@ -3,19 +3,29 @@ import { useWallet } from "../hooks/useWallet";
 import { useLGCRead } from "../hooks/useLGCRead";
 import { useLGCWrite } from "../hooks/useLGCWrite";
 import { loadBlockedTxs, type BlockedTx } from "../lib/blockedTxStore";
+import { Sidebar, type Page } from "../components/Sidebar";
 import { TopBar } from "../components/TopBar";
-import { HowToUse } from "../components/HowToUse";
 import { TokenOverview } from "../components/TokenOverview";
 import { WalletStatus } from "../components/WalletStatus";
 import { AdminPanel } from "../components/AdminPanel";
 import { UserPanel } from "../components/UserPanel";
 import { MonitoringPanel } from "../components/MonitoringPanel";
+import { HowToUse } from "../components/HowToUse";
 import { Footer } from "../components/Footer";
+
+const PAGE_TITLES: Record<Page, string> = {
+  overview: "Overview",
+  admin: "Admin Panel",
+  transfer: "Transfer",
+  activity: "Activity Log",
+  guide: "How to Use",
+};
 
 export function Dashboard() {
   const { wallet, connect, switchToSepolia } = useWallet();
   const { tokenInfo, walletInfo, loading, refresh } = useLGCRead();
   const [blockedTxs, setBlockedTxs] = useState<BlockedTx[]>(() => loadBlockedTxs());
+  const [activePage, setActivePage] = useState<Page>("overview");
 
   // Load contract state whenever wallet connects or changes
   useEffect(() => {
@@ -47,64 +57,88 @@ export function Dashboard() {
     !!tokenInfo?.owner &&
     wallet.address.toLowerCase() === tokenInfo.owner.toLowerCase();
 
+  const role = walletInfo?.role ?? "None";
+
+  // Auto-redirect away from admin page if role changes
+  useEffect(() => {
+    if (activePage === "admin" && role !== "Owner" && role !== "Admin") {
+      setActivePage("overview");
+    }
+  }, [role, activePage]);
+
   return (
-    <div className="min-h-screen bg-gray-950 text-white">
-      <TopBar
+    <div className="flex min-h-screen bg-gray-950">
+      {/* Sidebar */}
+      <Sidebar
+        activePage={activePage}
+        onNavigate={setActivePage}
         address={wallet.address}
-        chainId={wallet.chainId}
+        role={role}
         isCorrectChain={wallet.isCorrectChain}
-        role={walletInfo?.role ?? "None"}
-        connectError={wallet.error}
-        onConnect={connect}
-        onSwitchChain={switchToSepolia}
-        connecting={wallet.connecting}
+        blockedCount={blockedTxs.length}
       />
 
-      <main className="max-w-6xl mx-auto px-4 py-6 space-y-8">
-        {/* Wrong chain warning */}
-        {wallet.address && !wallet.isCorrectChain && (
-          <div className="bg-red-900 border border-red-700 text-red-300 text-sm rounded-lg px-4 py-3">
-            You are connected to the wrong network. Please switch to Sepolia to use this dashboard.
-          </div>
-        )}
-
-        {/* How to use guide — collapsible, always visible */}
-        <HowToUse />
-
-        {/* Token overview — always visible */}
-        <TokenOverview tokenInfo={tokenInfo} loading={loading} />
-
-        {/* Two-column layout for wallet status + admin/user panels */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-1">
-            <WalletStatus
-              address={wallet.address}
-              tokenInfo={tokenInfo}
-              walletInfo={walletInfo}
-            />
-          </div>
-          <div className="lg:col-span-2 space-y-6">
-            <AdminPanel
-              walletInfo={walletInfo}
-              isOwner={isOwner}
-              write={write}
-            />
-            <UserPanel
-              address={wallet.address}
-              walletInfo={walletInfo}
-              write={write}
-            />
-          </div>
-        </div>
-
-        {/* Monitoring */}
-        <MonitoringPanel
-          blockedTxs={blockedTxs}
-          onClear={() => setBlockedTxs([])}
+      {/* Main content */}
+      <div className="flex-1 flex flex-col min-w-0">
+        <TopBar
+          address={wallet.address}
+          isCorrectChain={wallet.isCorrectChain}
+          connectError={wallet.error}
+          onConnect={connect}
+          onSwitchChain={switchToSepolia}
+          connecting={wallet.connecting}
+          pageTitle={PAGE_TITLES[activePage]}
         />
-      </main>
 
-      <Footer />
+        <main className="flex-1 px-6 py-6 overflow-y-auto">
+          {/* Wrong chain warning */}
+          {wallet.address && !wallet.isCorrectChain && (
+            <div className="flex items-center gap-3 bg-red-950/40 border border-red-800/60 text-red-300 text-sm rounded-xl px-4 py-3 mb-6">
+              <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse shrink-0" />
+              You are on the wrong network. Please switch to Sepolia to interact with the contract.
+            </div>
+          )}
+
+          {/* Overview */}
+          {activePage === "overview" && (
+            <div className="space-y-6 max-w-5xl">
+              <TokenOverview tokenInfo={tokenInfo} loading={loading} />
+              <WalletStatus address={wallet.address} tokenInfo={tokenInfo} walletInfo={walletInfo} />
+            </div>
+          )}
+
+          {/* Admin */}
+          {activePage === "admin" && (
+            <div className="max-w-4xl">
+              <AdminPanel walletInfo={walletInfo} isOwner={isOwner} write={write} />
+            </div>
+          )}
+
+          {/* Transfer */}
+          {activePage === "transfer" && (
+            <div className="max-w-4xl">
+              <UserPanel address={wallet.address} walletInfo={walletInfo} write={write} />
+            </div>
+          )}
+
+          {/* Activity */}
+          {activePage === "activity" && (
+            <div className="max-w-4xl">
+              <MonitoringPanel
+                blockedTxs={blockedTxs}
+                onClear={() => setBlockedTxs([])}
+              />
+            </div>
+          )}
+
+          {/* Guide */}
+          {activePage === "guide" && (
+            <HowToUse />
+          )}
+
+          <Footer />
+        </main>
+      </div>
     </div>
   );
 }

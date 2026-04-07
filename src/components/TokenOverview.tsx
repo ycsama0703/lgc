@@ -1,3 +1,4 @@
+import { Coins, Hash, Layers, TrendingUp } from "lucide-react";
 import type { TokenInfo } from "../hooks/useLGCRead";
 
 interface Props {
@@ -5,32 +6,50 @@ interface Props {
   loading: boolean;
 }
 
-function StatCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="bg-gray-800 border border-gray-700 rounded-lg p-4">
-      <p className="text-gray-400 text-xs uppercase tracking-wide mb-1">{label}</p>
-      <p className="text-white text-lg font-mono font-semibold break-all">{value}</p>
-    </div>
-  );
+const CARDS = [
+  { key: "name",        label: "Token Name",   icon: <Coins size={18} />,     color: "text-indigo-400",  border: "border-indigo-900/60" },
+  { key: "symbol",      label: "Symbol",       icon: <Hash size={18} />,      color: "text-purple-400",  border: "border-purple-900/60" },
+  { key: "decimals",    label: "Decimals",     icon: <Layers size={18} />,    color: "text-blue-400",    border: "border-blue-900/60" },
+  { key: "totalSupply", label: "Total Supply", icon: <TrendingUp size={18} />, color: "text-green-400",  border: "border-green-900/60" },
+] as const;
+
+function getValue(key: typeof CARDS[number]["key"], tokenInfo: TokenInfo | null): string {
+  if (!tokenInfo) return "—";
+  if (key === "name") return tokenInfo.name;
+  if (key === "symbol") return tokenInfo.symbol;
+  if (key === "decimals") return String(tokenInfo.decimals);
+  if (key === "totalSupply") return `${tokenInfo.totalSupply} ${tokenInfo.symbol}`;
+  return "—";
 }
 
 export function TokenOverview({ tokenInfo, loading }: Props) {
-  const placeholder = "—";
-
   return (
-    <section>
-      <h2 className="text-gray-300 text-sm font-semibold uppercase tracking-wide mb-3">
-        Token Overview
-      </h2>
-      {loading && (
-        <p className="text-gray-500 text-sm mb-2">Loading token info…</p>
-      )}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatCard label="Name" value={tokenInfo?.name ?? placeholder} />
-        <StatCard label="Symbol" value={tokenInfo?.symbol ?? placeholder} />
-        <StatCard label="Decimals" value={tokenInfo ? String(tokenInfo.decimals) : placeholder} />
-        <StatCard label="Total Supply" value={tokenInfo ? `${tokenInfo.totalSupply} ${tokenInfo.symbol}` : placeholder} />
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h2 className="text-gray-400 text-xs font-semibold uppercase tracking-widest">Token Info</h2>
+        {loading && (
+          <span className="flex items-center gap-1.5 text-xs text-gray-500">
+            <span className="w-2.5 h-2.5 border-2 border-gray-600 border-t-gray-300 rounded-full animate-spin" />
+            Loading…
+          </span>
+        )}
       </div>
-    </section>
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+        {CARDS.map(({ key, label, icon, color, border }) => (
+          <div
+            key={key}
+            className={`bg-gray-900 border ${border} rounded-xl p-4 space-y-3`}
+          >
+            <div className={`${color}`}>{icon}</div>
+            <div>
+              <p className="text-gray-500 text-xs mb-0.5">{label}</p>
+              <p className={`font-semibold font-mono text-sm truncate ${tokenInfo ? "text-white" : "text-gray-600"}`}>
+                {getValue(key, tokenInfo)}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
