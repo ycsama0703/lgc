@@ -86,7 +86,7 @@ export function TopBar({
               disabled={connecting}
               className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-sm px-4 py-2 rounded font-medium"
             >
-              {connecting ? "Connecting…" : "Connect MetaMask"}
+              {connecting ? "Connecting… (check MetaMask)" : "Connect MetaMask"}
             </button>
           )}
         </div>

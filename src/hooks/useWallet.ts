@@ -20,83 +20,106 @@ const initialState: WalletState = {
   error: null,
 };
 
-// TODO Phase 2: implement full wallet connection logic
+async function switchChainIfNeeded(): Promise<void> {
+  if (!window.ethereum) return;
+  try {
+    await window.ethereum.request({
+      method: "wallet_switchEthereumChain",
+      params: [{ chainId: SEPOLIA_CHAIN_PARAMS.chainId }],
+    });
+  } catch (switchError: unknown) {
+    const err = switchError as { code?: number };
+    if (err.code === 4902) {
+      // Chain not in MetaMask yet — add it
+      await window.ethereum.request({
+        method: "wallet_addEthereumChain",
+        params: [SEPOLIA_CHAIN_PARAMS],
+      });
+    } else {
+      throw switchError;
+    }
+  }
+}
+
 export function useWallet() {
   const [wallet, setWallet] = useState<WalletState>(initialState);
 
   const connect = useCallback(async () => {
-    // Phase 2: MetaMask connect + chain check
     setWallet((w) => ({ ...w, connecting: true, error: null }));
     try {
-      if (!window.ethereum) throw new Error("MetaMask not found");
+      if (!window.ethereum) {
+        throw new Error(
+          "MetaMask not found. Please install it from metamask.io/download"
+        );
+      }
+
       const provider = new BrowserProvider(window.ethereum);
+
+      // Request account access
       const accounts: string[] = await provider.send("eth_requestAccounts", []);
-      const network = await provider.getNetwork();
-      const chainId = Number(network.chainId);
+      const address = accounts[0];
+
+      // Check current chain
+      let network = await provider.getNetwork();
+      let chainId = Number(network.chainId);
+
+      // If wrong chain, switch automatically — no second click needed
+      if (chainId !== CHAIN_ID) {
+        setWallet((w) => ({ ...w, connecting: true, error: null }));
+        await switchChainIfNeeded();
+        // Re-read chain after switch
+        network = await provider.getNetwork();
+        chainId = Number(network.chainId);
+      }
+
       setWallet({
-        address: accounts[0],
+        address,
         chainId,
-        provider,
+        provider: new BrowserProvider(window.ethereum), // fresh provider on correct chain
         isCorrectChain: chainId === CHAIN_ID,
         connecting: false,
         error: null,
       });
     } catch (e: unknown) {
-      setWallet((w) => ({
-        ...w,
-        connecting: false,
-        error: e instanceof Error ? e.message : "Connection failed",
-      }));
+      // User rejected or other error
+      const msg =
+        e instanceof Error ? e.message : "Connection failed";
+      setWallet((w) => ({ ...w, connecting: false, error: msg }));
     }
   }, []);
 
+  // switchToSepolia is kept for the manual button, calls connect after switching
   const switchToSepolia = useCallback(async () => {
-    if (!window.ethereum) return;
-    try {
-      await window.ethereum.request({
-        method: "wallet_switchEthereumChain",
-        params: [{ chainId: SEPOLIA_CHAIN_PARAMS.chainId }],
-      });
-    } catch (switchError: unknown) {
-      // Chain not added yet — add it
-      const err = switchError as { code?: number };
-      if (err.code === 4902) {
-        await window.ethereum.request({
-          method: "wallet_addEthereumChain",
-          params: [SEPOLIA_CHAIN_PARAMS],
-        });
-      }
-    }
-    // After switching, chainChanged fires which reloads the page automatically.
-    // If no reload happens (some wallets), re-read the chain from provider.
-    if (window.ethereum) {
-      const provider = new BrowserProvider(window.ethereum);
-      const network = await provider.getNetwork();
-      const chainId = Number(network.chainId);
-      setWallet((w) => ({
-        ...w,
-        chainId,
-        provider,
-        isCorrectChain: chainId === CHAIN_ID,
-      }));
-    }
-  }, []);
+    await switchChainIfNeeded().catch(() => null);
+    await connect();
+  }, [connect]);
 
-  // Listen for account/chain changes
+  // Listen for account/chain changes — re-connect silently instead of full reload
   useEffect(() => {
     if (!window.ethereum) return;
+
     const handleAccountsChanged = (...args: unknown[]) => {
       const accounts = args[0] as string[];
-      setWallet((w) => ({ ...w, address: accounts[0] ?? null }));
+      if (accounts.length === 0) {
+        // User disconnected wallet
+        setWallet(initialState);
+      } else {
+        setWallet((w) => ({ ...w, address: accounts[0] }));
+      }
     };
-    const handleChainChanged = () => window.location.reload();
+
+    const handleChainChanged = () => {
+      // Re-connect silently so state refreshes without a full page reload
+      void connect();
+    };
+
     window.ethereum.on("accountsChanged", handleAccountsChanged);
     window.ethereum.on("chainChanged", handleChainChanged);
     return () => {
       window.ethereum?.removeListener("accountsChanged", handleAccountsChanged);
       window.ethereum?.removeListener("chainChanged", handleChainChanged);
     };
-  }, []);
+  }, [connect]);
 
   return { wallet, connect, switchToSepolia };
 }
